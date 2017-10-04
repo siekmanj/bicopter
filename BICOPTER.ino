@@ -9,30 +9,29 @@
 
 #include <Wire.h>
 
-const int SERVO_RIGHT_OFFSET = 160;   //Servo offset for right servo
-const int SERVO_LEFT_OFFSET = 0;     //Servo offset for left servo
+const int SERVO_RIGHT_OFFSET = 90;   //Servo offset for right servo
+const int SERVO_LEFT_OFFSET = 70;     //Servo offset for left servo
 const int MPU_ADDR = 0x68;            //i2c address of IMU
-const int GYRO_ACCURACY =  1000;      //Number of readings averaged to calculate gyro drift - the higher the better, but the longer the setup time.
+const int GYRO_ACCURACY =  1500;      //Number of readings averaged to calculate gyro drift - the higher the better, but the longer the setup time.
 const int MAX_PITCH_OUTPUT = 500;
 const int MAX_ROLL_OUTPUT = 400;
 const int MAX_YAW_OUTPUT = 150;
 const int SERVO_REFRESH_HZ = 250/50;
 
-const boolean SPIN_MOTORS = false;    //Safety feature for testing without blades spinning.
+const boolean SPIN_MOTORS = true;    //Safety feature for testing without blades spinning.
 const boolean USE_SERVOS = true;     //Debugging feature for ignoring servos
 
-
-const float KPp = 0.383;
+const float KPp = 0.3860;
 const float KIp = 0.00000;
-const float KDp = 8.65;
+const float KDp = 6.5;
 
-const float KPr = .21; //11
+const float KPr = .2150; //11
 const float KIr = 0.0;  //0.0015
 const float KDr = 4; //6.7
   
-const float KPy = 5;
+const float KPy = 6;
 const float KIy = 0.0;
-const float KDy = 1.0;
+const float KDy = 2.0;
 
 float gY, gX, gZ, gYdrift, gXdrift, gZdrift;
 float aY, aX, aZ, aTotal, temperature;
@@ -64,8 +63,9 @@ boolean centerGyro = true;
 void setup() {
   Serial.begin(230400);
   while(!Serial);
-  Serial.println("init\nRegister setup...");
   
+  Serial.println("init\nRegister setup...");
+  delay(500);
   DDRD |= B11110000;                                 //Set ports 4, 5, 6 and 7 to output
   PCICR |= (1 << PCIE0);                             // set PCIE0 to enable PCMSK0 scan
   PCICR |= (1 << PCIE1);                             // set PCIE1 to enable PCMSK1 scan
@@ -74,7 +74,10 @@ void setup() {
   PCMSK0 |= (1 << PCINT2);                           // set PCINT2 (digital input 10) to trigger an interrupt
   PCMSK0 |= (1 << PCINT3);                           // set PCINT3 (digital input 11) to trigger an interrupt
   PCMSK0 |= (1 << PCINT4);                           // set PCINT4 (digital input 12) to trigger an interrupt
+  
   Serial.println("Register setup done.");
+  delay(500);
+ 
   gYdrift = 0;
   gXdrift = 0;
   gZdrift = 0;
@@ -82,13 +85,13 @@ void setup() {
   gX = 0;
   gZ = 0;
   Serial.println("Gyro setup...");
+  delay(500);
   //Activate the MPU-6050
   Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
   Wire.write(0x6B);                                                    //Send turn-on command
   Wire.write(0x00);                                                    //Send reset command
   Wire.endTransmission();                                              //End the transmission 
   delay(200);
-  
   //Configure the accelerometer (+/-8g)
   Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
   Wire.write(0x1C);                                                    //Send accelerometer self-test command
@@ -134,39 +137,39 @@ void setup() {
   
    //Do a swivel to check full range of motion of servos
   if(USE_SERVOS){
-    for(int i = 1500; i < 2000; i+=4){
+    for(int i = 1500; i < 2200; i+=4){
       unsigned long loop_start_t = micros();
       PORTD |= B11000000;
       while(loop_start_t + i > micros());
       PORTD &= B00000000;
-      while(loop_start_t + 32000 > micros());
+      while(loop_start_t + 5000 > micros());
     }
-    for(int i = 2000; i > 1000; i-=4){
+    for(int i = 2000; i > 800; i-=4){
       unsigned long loop_start_t = micros();
       PORTD |= B11000000;
       while(loop_start_t + i > micros());
       PORTD &= B00000000;
-      while(loop_start_t + 20000 > micros());
+      while(loop_start_t + 5000 > micros());
     }
     for(int i = 1000; i < 1500; i+=4){
       unsigned long loop_start_t = micros();
       PORTD |= B11000000;
       while(loop_start_t + i > micros());
       PORTD &= B00000000;
-      while(loop_start_t + 20000 > micros());
+      while(loop_start_t + 5000 > micros());
     }
     for(int i = 0; i < 25; i++){
       unsigned long loop_start_t = micros();
       PORTD |= B11000000;
       while(loop_start_t + 1500 > micros());
       PORTD &= B00000000;
-      while(loop_start_t + 20000 > micros());
+      while(loop_start_t + 5000 > micros());
     }
   }
   
   //Calibrate ESCs
   if(SPIN_MOTORS){
-    for(int i = 2000; i > 1000; i--){
+    for(int i = 2000; i > 1000; i-=4){
       unsigned long loop_start_t = micros();
       PORTD |= B00110000;
       delayMicroseconds(i);
@@ -203,8 +206,8 @@ void loop() {
     gyroRollEstimate += gyroPitchEstimate * sin(gZ * (convert_to_degrees * (3.142/180))); 
 
     aTotal = sqrt((aX*aX)+(aY*aY)+(aZ*aZ));            
-    accPitchEstimate = -asin((float)aX/aTotal) * 57.2958 - 7.3; 
-    accRollEstimate = -asin((float)aY/aTotal) * -57.2958; 
+    accPitchEstimate = -asin((float)aX/aTotal) * 57.2958 - 6; 
+    accRollEstimate = -asin((float)aY/aTotal) * -57.2958 + 3; 
     if(centerGyro){ //This is the first loop, and the quadcopter may not be on level ground. So we need to use the accelerometer to center the gyroscope.
 
       centerGyro = false;
@@ -229,11 +232,11 @@ void loop() {
     
     throttle = receiver_ch3;
     
-    if(receiver_ch2 > 1508) setPointPitch = (1508 - receiver_ch2)/-1.5;
-    else if(receiver_ch2 < 1492) setPointPitch = (1492 - receiver_ch2)/-1.5;
+    if(receiver_ch2 > 1508) setPointPitch = (1508 - receiver_ch2)/1.5;
+    else if(receiver_ch2 < 1492) setPointPitch = (1492 - receiver_ch2)/1.5;
     
-    if(receiver_ch1 > 1508) setPointRoll = (receiver_ch1 - 1508)/1.6;
-    else if(receiver_ch1 < 1492) setPointRoll = (receiver_ch1 - 1492)/1.6;
+    if(receiver_ch1 > 1508) setPointRoll = (receiver_ch1 - 1508)/-1.6;
+    else if(receiver_ch1 < 1492) setPointRoll = (receiver_ch1 - 1492)/-1.6;
 
     /*
      * PID calculations
@@ -244,8 +247,8 @@ void loop() {
      * ESC & Servo PWM output calculations
      */
     
-    esc1 = throttle - outputRoll;
-    esc2 = throttle + outputRoll;
+    esc1 = throttle + outputRoll;
+    esc2 = throttle - outputRoll;
 
     if(esc1 < 1000 || throttle < 1020) esc1 = 1000;
     if(esc2 < 1000 || throttle < 1020) esc2 = 1000;
@@ -253,7 +256,6 @@ void loop() {
     /*
      * ESC & Servo PWM output generation
      */
-     
     boolean moveServos = false;
     
     if(servoUpdateTick == SERVO_REFRESH_HZ){
@@ -261,8 +263,8 @@ void loop() {
 
       old_servoRight = servoRight;
       old_servoLeft = servoLeft;
-      servoRight = 1500 + SERVO_RIGHT_OFFSET - outputPitch + outputYaw;
-      servoLeft = 1500 + SERVO_LEFT_OFFSET + outputPitch + outputYaw;
+      servoRight = 1500 + SERVO_RIGHT_OFFSET + outputPitch + outputYaw;
+      servoLeft = 1500 + SERVO_LEFT_OFFSET - outputPitch + outputYaw;
       //moveServos = true;
       
       if(old_servoRight - servoRight > 0 || old_servoRight - servoRight < 0){ //Digital servos can only handle so many PWM signals per second. If we do one every 8 loops thats every 32 ms - roughly 31hz. Google says 40hz is upper bound, so we gud.
@@ -278,6 +280,7 @@ void loop() {
     }else{
       servoUpdateTick++;
     }
+    //Serial.print(rollEstimate); Serial.print(", "); Serial.println(accRollEstimate);
     while(zero_timer + 4000 > micros());
     zero_timer = micros();
 
@@ -357,7 +360,7 @@ void calculate_pid(){
     errorTemp = 0;
     prevErrorY = 0;
     outputYaw = 0;
-    //outputPitch = 0;
+    outputPitch = -1 * pitchEstimate * 16;
     outputRoll = 0;
     integralP = 0;
     integralR = 0;
